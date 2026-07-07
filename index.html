@@ -700,8 +700,8 @@ const store = {
   set(k,v){ try { localStorage.setItem(k, v); } catch(e){ this._m[k] = String(v); } }
 };
 /* Supabase 설정 — 프로젝트 만들고 두 값만 채우면 글로벌 랭킹 활성화 */
-const SUPABASE_URL = '';  /* 예: https://xxxx.supabase.co */
-const SUPABASE_KEY = '';  /* anon public key */
+const SUPABASE_URL = 'https://guokbudfeidmlgdslide.supabase.co';  /* 예: https://xxxx.supabase.co */
+const SUPABASE_KEY = 'sb_publishable_gUG29oaqEO8cXghlTkPr5w_e6Vy1W_W';  /* anon public key */
 async function sbFetchTop(){
   if (!SUPABASE_URL) return null;
   try {
