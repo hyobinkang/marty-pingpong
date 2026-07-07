@@ -134,6 +134,17 @@
     font:700 13px 'Futura','Century Gothic',Arial,sans-serif; letter-spacing:.08em; color:rgba(242,237,228,.8); }
   #lb .row { border-bottom:1px solid #1c1c1c; padding:6px 0; }
   #lb .row.me { color:var(--or); }
+  #pauseBtn { position:fixed; top:calc(7vh + 12px); left:16px; z-index:24; display:none;
+    width:40px; height:40px; cursor:pointer; background:rgba(10,10,10,.45);
+    border:1.5px solid rgba(242,237,228,.25); color:rgba(242,237,228,.75);
+    font:700 14px Arial; line-height:37px; text-align:center; letter-spacing:2px; text-indent:2px;
+    user-select:none; -webkit-user-select:none; }
+  body.playing #pauseBtn { display:block; }
+  #pause { position:fixed; inset:0; z-index:32; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; background:rgba(4,4,4,.78); }
+  #pause.hidden { display:none; }
+  #pause h2 { font:700 min(9vw,40px) 'Futura','Century Gothic',Arial,sans-serif;
+    color:var(--ink); letter-spacing:.35em; text-indent:.35em; }
   #buildTag { position:fixed; bottom:6px; right:10px; z-index:35; pointer-events:none;
     font:700 9px 'Futura','Century Gothic',Arial,sans-serif; letter-spacing:.25em;
     color:rgba(242,237,228,.22); }
@@ -146,6 +157,7 @@
 <div class="bar top"></div><div class="bar bottom"></div>
 <div id="vignette"></div><div id="dither"></div>
 
+<div id="pauseBtn">II</div>
 <div id="hud" class="gta">
   <div id="score"><span id="pScore">0</span> — <span id="cScore" class="cpu">0</span></div>
   <div id="names" class="gta">YOU&nbsp;·&nbsp;MARTY</div>
@@ -153,7 +165,7 @@
 </div>
 <div id="msg" class="gta"></div>
 <div id="subtitle"></div>
-<div id="buildTag">BUILD 6.9</div>
+<div id="buildTag">BUILD 7.2</div>
 <div id="missionTag" class="gta">— FIRST TO ELEVEN —</div>
 
 <div id="menu">
@@ -167,6 +179,14 @@
   <div class="btns">
     <button id="btnEndless">ENDLESS RALLY</button>
     <button id="btnMatch" class="alt">MATCH · TO 11</button>
+  </div>
+</div>
+
+<div id="pause" class="hidden">
+  <h2>PAUSED</h2>
+  <div class="btns">
+    <button id="btnResume">RESUME</button>
+    <button id="btnPauseMenu" class="alt">MENU</button>
   </div>
 </div>
 
@@ -284,13 +304,10 @@ mkLine(.015, TABLE.L, 0, 0);
   const leg = new THREE.Mesh(new THREE.BoxGeometry(.07,TABLE.H-.05,.07), L(0x2a2a2e));
   leg.position.set(x,(TABLE.H-.05)/2,z); table.add(leg);
 });
+/* 흰 망사: 저해상도에선 균일 반투명이 곧 망사 — 무늬는 앨리어싱만 만든다 */
 const net = new THREE.Mesh(new THREE.BoxGeometry(TABLE.W+.2, TABLE.NET, .01),
-  L(0x161616, { map: canvasTex((g,w,h)=>{ /* 그물 격자 */
-    g.fillStyle='#101010'; g.fillRect(0,0,w,h);
-    g.strokeStyle='#2e2e2e'; g.lineWidth=2;
-    for(let x=0;x<=w;x+=8){ g.beginPath(); g.moveTo(x,0); g.lineTo(x,h); g.stroke(); }
-    for(let y=0;y<=h;y+=8){ g.beginPath(); g.moveTo(0,y); g.lineTo(w,y); g.stroke(); }
-  })}));
+  new THREE.MeshBasicMaterial({ color: 0xe8e4dc, transparent: true, opacity: .45,
+    depthWrite: false, side: THREE.DoubleSide }));
 net.position.set(0, TABLE.H + TABLE.NET/2, 0); table.add(net);
 const netTape = new THREE.Mesh(new THREE.BoxGeometry(TABLE.W+.2,.022,.014), lineM);
 netTape.position.set(0, TABLE.H + TABLE.NET - .01, 0); table.add(netTape);
@@ -922,19 +939,42 @@ function endlessPoint(mine, reason){
     }
   }, 1400);
 }
+let paused = false;
+function setPaused(p){
+  if (p && (state === S.MENU || state === S.OVER)) return;
+  paused = p;
+  $('pause').classList.toggle('hidden', !p);
+}
+function quitToMenu(){
+  paused = false;
+  $('pause').classList.add('hidden');
+  $('over').classList.add('hidden');
+  $('hud').style.display = 'none';
+  document.body.classList.remove('playing');
+  state = S.MENU;
+  $('menu').classList.remove('hidden');
+}
+document.getElementById('pauseBtn').addEventListener('pointerdown', e => {
+  e.stopPropagation(); setPaused(true);
+});
+document.getElementById('btnResume').addEventListener('click', e => {
+  e.stopPropagation(); setPaused(false);
+});
+document.getElementById('btnPauseMenu').addEventListener('click', e => {
+  e.stopPropagation(); quitToMenu();
+});
+addEventListener('keydown', e => {
+  if (e.key === 'Escape') setPaused(!paused);
+});
 function onAction(){
+  if (paused) return;
   if (state === S.SERVE_ME) serve(true);
 }
 document.getElementById('btnEndless').addEventListener('click', e => { e.stopPropagation(); startGame('endless'); });
 document.getElementById('btnMatch').addEventListener('click', e => { e.stopPropagation(); startGame('match'); });
 document.getElementById('btnRetry').addEventListener('click', e => { e.stopPropagation(); startGame(mode); });
 document.getElementById('btnMenu').addEventListener('click', e => {
-  e.stopPropagation();
-  $('over').classList.add('hidden');
-  $('menu').classList.remove('hidden');
-  $('hud').style.display = 'none';
-  document.body.classList.remove('playing');
-  state = S.MENU;
+  e.stopPropagation(); quitToMenu();
 });
 document.getElementById('nick').value = nick;
 addEventListener('pointerdown', e => { onMove(e.clientX,e.clientY); onAction(); });
@@ -945,6 +985,7 @@ let cpuTargetX = 0, elapsed = 0;
 let paddleVX = 0, lastPX = 0, camFollowX = 0, lastBounceZ = -1.4, lastBounceX = 0, whiffReason = null;
 
 function step(dt){
+  if (paused) return;
   elapsed += dt;
   const t = paddleTarget();
   myPaddle.position.x += (t.x - myPaddle.position.x) * Math.min(1, dt*18);
