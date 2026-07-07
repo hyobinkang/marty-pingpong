@@ -134,6 +134,9 @@
     font:700 13px 'Futura','Century Gothic',Arial,sans-serif; letter-spacing:.08em; color:rgba(242,237,228,.8); }
   #lb .row { border-bottom:1px solid #1c1c1c; padding:6px 0; }
   #lb .row.me { color:var(--or); }
+  #buildTag { position:fixed; bottom:6px; right:10px; z-index:35; pointer-events:none;
+    font:700 9px 'Futura','Century Gothic',Arial,sans-serif; letter-spacing:.25em;
+    color:rgba(242,237,228,.22); }
   #subtitle { -webkit-text-stroke:4px #000; } /* PS2 자막은 디제틱 요소로 유지 */
 </style>
 </head>
@@ -150,6 +153,7 @@
 </div>
 <div id="msg" class="gta"></div>
 <div id="subtitle"></div>
+<div id="buildTag">BUILD 6.9</div>
 <div id="missionTag" class="gta">— FIRST TO ELEVEN —</div>
 
 <div id="menu">
@@ -331,18 +335,43 @@ drawCard(cardP, 0); drawCard(cardC, 0);
 scoreboard.position.set(-1.72, 0, .15);
 scoreboard.rotation.y = .5; /* 카메라 쪽으로 살짝 */
 scene.add(scoreboard);
+
+/* 매치 모드 타겟 존 — 이 안에 넣으면 그가 흔들린다 (존 자체가 튜토리얼) */
+const zoneMat = new THREE.MeshBasicMaterial({ color: 0xe8f0e0, transparent: true, opacity: .12, depthWrite: false });
+const zoneGeom = new THREE.PlaneGeometry(.34, 1.02);
+const zoneL = new THREE.Mesh(zoneGeom, zoneMat);
+zoneL.rotation.x = -Math.PI/2; zoneL.position.set(-.59, TABLE.H + .004, -.86); zoneL.visible = false;
+const zoneR = new THREE.Mesh(zoneGeom, zoneMat);
+zoneR.rotation.x = -Math.PI/2; zoneR.position.set(.59, TABLE.H + .004, -.86); zoneR.visible = false;
+scene.add(zoneL, zoneR);
 const sbLight = new THREE.PointLight(0xffd9a0, .35, 3);
 sbLight.position.set(-1.5, 1.6, .8); scene.add(sbLight);
 
 /* ===== 무드 라이팅: 연노랑 빛기둥 + 바닥 라이트 풀 ===== */
 {
-  const beamMat = op => new THREE.MeshBasicMaterial({
-    color: 0xfff3c8, transparent: true, opacity: op,
-    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  const beam1 = new THREE.Mesh(new THREE.CylinderGeometry(.5, 1.5, 5.6, 14, 1, true), beamMat(.02));
-  beam1.position.set(0, 3.6, 0); scene.add(beam1);
-  const beam2 = new THREE.Mesh(new THREE.CylinderGeometry(.3, 1.0, 5.6, 12, 1, true), beamMat(.028));
-  beam2.position.set(0, 3.6, 0); scene.add(beam2);
+  const coarse = matchMedia('(pointer: coarse)').matches;
+/* 단일 빌보드 광선 — 원기둥 이중 벽 아티팩트 원천 제거 */
+  const shaftTex = canvasTex((g, w, h) => {
+    const v = g.createLinearGradient(0, 0, 0, h);
+    v.addColorStop(0, 'rgba(255,243,200,.9)');
+    v.addColorStop(.75, 'rgba(255,243,200,.25)');
+    v.addColorStop(1, 'rgba(255,243,200,0)');
+    g.fillStyle = v;
+    g.beginPath();
+    g.moveTo(w*.40, 0); g.lineTo(w*.60, 0);
+    g.lineTo(w*.86, h); g.lineTo(w*.14, h);
+    g.closePath(); g.fill();
+    const s = g.createLinearGradient(0, 0, w, 0);
+    s.addColorStop(0, 'rgba(0,0,0,1)'); s.addColorStop(.28, 'rgba(0,0,0,0)');
+    s.addColorStop(.72, 'rgba(0,0,0,0)'); s.addColorStop(1, 'rgba(0,0,0,1)');
+    g.globalCompositeOperation = 'destination-out';
+    g.fillStyle = s; g.fillRect(0, 0, w, h);
+  }, 128, 256);
+  const shaft = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 6.2),
+    new THREE.MeshBasicMaterial({ map: shaftTex, transparent: true,
+      opacity: coarse ? .28 : .4, blending: THREE.AdditiveBlending, depthWrite: false }));
+  shaft.position.set(0, 3.3, -.7);
+  scene.add(shaft);
   /* 바닥에 고이는 따뜻한 빛 */
   const poolTex = canvasTex((g, w, h) => {
     const r = g.createRadialGradient(w/2, h/2, 10, w/2, h/2, w/2);
@@ -351,7 +380,7 @@ sbLight.position.set(-1.5, 1.6, .8); scene.add(sbLight);
     g.fillStyle = r; g.fillRect(0, 0, w, h);
   });
   const pool = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 4.2),
-    new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, opacity: .2,
+    new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, opacity: coarse ? .16 : .2,
       blending: THREE.AdditiveBlending, depthWrite: false }));
   pool.rotation.x = -Math.PI/2; pool.position.y = .012; scene.add(pool);
   /* 테이블 밑 은은한 바운스 (레퍼런스의 다리 사이 글로우) */
@@ -612,6 +641,7 @@ const ball = new THREE.Mesh(new THREE.SphereGeometry(.032, 8, 6),
   new THREE.MeshBasicMaterial({ color:0xfff2d8 }));
 scene.add(ball);
 const ballV = new THREE.Vector3();
+const prevBall = new THREE.Vector3();
 /* 잔상 트레일: 고속 공 시인성 */
 const ghosts = [];
 for (let gi=0; gi<4; gi++){
@@ -775,19 +805,20 @@ function launch(from, targetX, targetZ, T){
 
 function serve(byMe){
   bouncedOpp = false;
+  whiffReason = null; lastBounceZ = -1.4; lastBounceX = 0;
   if (byMe) {
     lastHitter = 'me';
     const p = myPaddle.position;
     launch(new THREE.Vector3(p.x*.8, p.y+.05, PLAY.z-.15),
       THREE.MathUtils.clamp(-p.x*.5 + (Math.random()-.5)*.5, -.6,.6),
-      -(.45 + Math.random()*.7), .62);
+      -(.45 + Math.random()*.6), .62);
     mySwing = 1; pop(560,.06,.3);
   } else {
     lastHitter = 'cpu';
     const tp = currentTip();
     launch(new THREE.Vector3(prodigy.position.x + tp.x, tp.y, prodigy.position.z + tp.z),
       THREE.MathUtils.clamp((Math.random()-.5)*1.0, -.6,.6),
-      .45 + Math.random()*.7, .66);
+      .45 + Math.random()*.6, .58);
     cpuSwing = 1; pop(500,.06,.25);
   }
   state = S.RALLY;
@@ -848,6 +879,7 @@ function startGame(m){
   setTimeout(()=>$('missionTag').style.opacity = 0, 2600);
   setTimeout(()=>say(tauntStart, 2200), 600);
   updateHUD();
+  zoneL.visible = zoneR.visible = (m === 'match');
   state = S.SERVE_ME;
   parkBall(); pop(660,.1,.2);
 }
@@ -910,6 +942,7 @@ addEventListener('pointerdown', e => { onMove(e.clientX,e.clientY); onAction(); 
 /* ================= simulation ================= */
 const clock = new THREE.Clock();
 let cpuTargetX = 0, elapsed = 0;
+let paddleVX = 0, lastPX = 0, camFollowX = 0, lastBounceZ = -1.4, lastBounceX = 0, whiffReason = null;
 
 function step(dt){
   elapsed += dt;
@@ -917,25 +950,33 @@ function step(dt){
   myPaddle.position.x += (t.x - myPaddle.position.x) * Math.min(1, dt*18);
   myPaddle.position.y += (t.y - myPaddle.position.y) * Math.min(1, dt*18);
   myPaddle.rotation.z = -(t.x - myPaddle.position.x) * 4;
+  /* 스와이프 속도 (조준용, 지수 평활) */
+  paddleVX = paddleVX * 0.75 + ((myPaddle.position.x - lastPX) / Math.max(dt, 1e-3)) * 0.25;
+  lastPX = myPaddle.position.x;
   mySwing = Math.max(0, mySwing - dt*3);
   setArm(Math.min(1, mySwing));
 
   camShake = Math.max(0, camShake - dt*2.2);
   const shX = (Math.random()-.5)*camShake*.03, shY = (Math.random()-.5)*camShake*.03;
-  camera.position.x = CAM_BASE.x + myPaddle.position.x*.12 + shX;
+  /* 공이 넘어올 때 카메라가 옆으로 팬 — 와이드 볼 시야 유지 */
+  const wantFollow = (state === S.RALLY && ballV.z > 0)
+    ? THREE.MathUtils.clamp(ball.position.x, -1.1, 1.1) * (IS_MOBILE ? .50 : .26) : 0;
+  camFollowX += (wantFollow - camFollowX) * Math.min(1, dt * 7);
+  camera.position.x = CAM_BASE.x + myPaddle.position.x*.12 + camFollowX + shX;
   camera.position.y = CAM_BASE.y + Math.sin(elapsed*1.3)*.012 + (myPaddle.position.y-1.1)*.06 + shY;
-  camera.lookAt(myPaddle.position.x*.15, .82, -1.2);
+  camera.lookAt(myPaddle.position.x*.15 + camFollowX*1.4, .82, -1.2);
 
   /* prodigy AI */
   const headingToCpu = ballV.z < 0;
-  if (state === S.RALLY && headingToCpu) {
+  const cpuSees = mode === 'endless' || ball.position.z < 0.6; /* 매치: 반응 지연 */
+  if (state === S.RALLY && headingToCpu && cpuSees) {
     const tz = (prodigy.position.z + .5 - ball.position.z) / ballV.z;
     cpuTargetX = (tz > 0 && tz < 3) ? ball.position.x + ballV.x * tz : ball.position.x;
     cpuTargetX = THREE.MathUtils.clamp(cpuTargetX, -1.1, 1.1);
   } else {
     cpuTargetX = Math.sin(elapsed*.7)*.15;
   }
-  const speed = mode==='endless' ? 2.4 + (speedMult()-1)*3.0 : 2.4;
+  const speed = mode==='endless' ? 2.4 + (speedMult()-1)*3.0 : 1.52;
   prodigy.position.x += THREE.MathUtils.clamp(cpuTargetX - prodigy.position.x, -speed*dt, speed*dt);
   prodigy.position.y = Math.abs(Math.sin(elapsed*2.4))*.015;
   cpuSwing = Math.max(0, cpuSwing - dt*3);
@@ -974,6 +1015,7 @@ function step(dt){
   if (state !== S.RALLY) return;
 
   /* ball physics */
+  prevBall.copy(ball.position);
   ball.position.addScaledVector(ballV, dt);
   ballV.y -= G * dt;
   const bp = ball.position;
@@ -986,16 +1028,23 @@ function step(dt){
   }
 
   /* 테이블 바운드 */
-  if (ballV.y < 0 && bp.y <= TABLE.H + .021 &&
-      Math.abs(bp.x) <= TABLE.W/2 + .02 && Math.abs(bp.z) <= TABLE.L/2 + .02) {
-    bp.y = TABLE.H + .021;
-    ballV.y = Math.abs(ballV.y) * .82;
-    pop(340,.045,.22);
-    const oppSide = lastHitter==='me' ? bp.z < 0 : bp.z > 0;
-    if (oppSide) bouncedOpp = true;
-    else if (bouncedOpp === false && Math.abs(bp.z) > .03) {
-      scorePoint(lastHitter==='cpu', lastHitter==='cpu' ? 'MARTY ERROR!' : 'OUT');
-      return;
+  const topY = TABLE.H + .021;
+  if (ballV.y < 0 && prevBall.y > topY && bp.y <= topY) {
+    /* 프레임 사이 교차점 보간 — 저프레임 터널링 방지 */
+    const f = (prevBall.y - topY) / Math.max(1e-6, prevBall.y - bp.y);
+    const cx = prevBall.x + (bp.x - prevBall.x) * f;
+    const cz = prevBall.z + (bp.z - prevBall.z) * f;
+    if (Math.abs(cx) <= TABLE.W/2 + .02 && Math.abs(cz) <= TABLE.L/2 + .02) {
+      bp.x = cx; bp.z = cz; bp.y = topY;
+      lastBounceZ = cz; lastBounceX = cx;
+      ballV.y = Math.abs(ballV.y) * .82;
+      pop(340,.045,.22);
+      const oppSide = lastHitter==='me' ? bp.z < 0 : bp.z > 0;
+      if (oppSide) bouncedOpp = true;
+      else if (bouncedOpp === false && Math.abs(bp.z) > .03) {
+        scorePoint(lastHitter==='cpu', lastHitter==='cpu' ? 'MARTY ERROR!' : 'OUT');
+        return;
+      }
     }
   }
 
@@ -1003,7 +1052,7 @@ function step(dt){
   if (bp.y < .08 || Math.abs(bp.x) > 4 || Math.abs(bp.z) > 4) {
     if (bouncedOpp) {
       const iWin = lastHitter === 'me';
-      scorePoint(iWin, iWin ? 'WINNER!' : 'MISSED');
+      scorePoint(iWin, iWin ? (whiffReason || 'WINNER!') : 'MISSED');
     } else {
       const iWin = lastHitter === 'cpu';
       scorePoint(iWin, iWin ? 'OUT — POINT!' : 'OUT');
@@ -1018,11 +1067,11 @@ function step(dt){
       lastHitter = 'me'; bouncedOpp = false;
       const power = Math.min(.22, Math.hypot(pointer.vx, pointer.vy)*3);
       const T = .68 - power - Math.random()*.05;
-      const aimX = THREE.MathUtils.clamp(bp.x - dx*2.2 - pointer.vx*6, -.62, .62);
-      const aimZ = -(.4 + Math.random()*.75 + power*1.5);
+      const aimX = THREE.MathUtils.clamp(dx * 2.2 + paddleVX * 0.15, -.68, .68); /* 펐 방식: 라켓 오른쪽에 맞으면 오른쪽으로 */
+      const aimZ = -(.42 + power*2.9 + Math.random()*.12); /* 살살=짧게, 세게=깊게 */
       /* 네트 클리어런스 보정: 걸릴 궤적이면 T를 늘려 띄움 */
       let Tf = Math.max(T, .42);
-      const zTgt = Math.max(aimZ, -1.28);
+      const zTgt = Math.max(aimZ, -1.12); /* 가장자리 안전마진 */
       for (let li=0; li<4; li++){
         const vy = (TABLE.H + .021 - bp.y + .5*G*Tf*Tf)/Tf;
         const vz = (zTgt - bp.z)/Tf;
@@ -1049,17 +1098,50 @@ function step(dt){
   /* --- CPU 히트 --- */
   const cpuPlane = prodigy.position.z + .5;
   if (ballV.z < 0 && bp.z <= cpuPlane + .1 && bp.z >= cpuPlane - .15) {
-    const reach = Math.abs(bp.x - prodigy.position.x) < .55 && bp.y > TABLE.H - .1 && bp.y < 2.0;
-    const skill = mode==='endless' ? 2 : .9 - Math.min(.25, (pScore-cScore)*.02);
-    if (reach && Math.random() < skill && bouncedOpp) {
-      lastHitter = 'cpu'; bouncedOpp = false;
-      const m = speedMult();
-      const T = mode==='endless' ? Math.max(.34, (.62 + Math.random()*.08)/m) : .6 + Math.random()*.15;
-      const spread = mode==='endless' ? Math.min(1.28, .8 + (m-1)*.85) : 1.15;
-      launch(bp.clone(),
-        THREE.MathUtils.clamp((Math.random()-.5)*spread, -.64,.64),
-        .35 + Math.random()*.85, T);
-      cpuSwing = 1; pop(520,.05,.25);
+    const heightOk = bp.y > TABLE.H - .1 && bp.y < 2.0;
+    const wide = IS_MOBILE ? .44 : .56;
+    if (mode === 'endless') {
+      if (heightOk && bouncedOpp && Math.abs(bp.x - prodigy.position.x) < .55) {
+        lastHitter = 'cpu'; bouncedOpp = false;
+        const m = speedMult();
+        const T = Math.max(.34, (.55 + Math.random()*.07)/m);
+        const spread = Math.min(1.28, .8 + (m-1)*.85);
+        launch(bp.clone(), THREE.MathUtils.clamp((Math.random()-.5)*spread, -wide, wide),
+          .35 + Math.random()*.85, T);
+        cpuSwing = 1; pop(520,.05,.25);
+      }
+    } else if (heightOk && bouncedOpp) {
+      /* 매치: 운 없음 — 스트레치(라켓에서 공까지 거리)가 전부 결정
+         0~62%: 정상 리턴 / 62~100%: 밀린 리턴(느리고 높게 가운데) / 100%+: 못 받음 */
+      /* 이기는 경우 3가지가 여기서 결정된다:
+         (a) 빠른 공일수록 리치 축소 — 구석 스매시가 뚫림
+         (b) 거리 자체 — 좌우 흔들기 역모션
+         (c) 짧은 바운드(드롭샷) — 앞으로는 못 달려나옴 */
+      /* 명시적 3규칙 — 화면의 존이 곧 튜토리얼:
+         [1] 짧은 공(살살 대기) → 앞으로 못 나옴 → DROP SHOT!
+         [2] 존 + 그가 먼 쪽 → CORNER! 득점
+         [3] 존 + 그가 근처 → OFF BALANCE (느린 찬스볼) */
+      const inZone = Math.abs(lastBounceX) > .42;
+      const isShort = lastBounceZ > -0.47;
+      const off = Math.abs(bp.x - prodigy.position.x);
+      if ((isShort && off > .18) || (inZone && off > .37)) {
+        if (!whiffReason) {
+          whiffReason = isShort ? 'DROP SHOT!' : 'CORNER!';
+          cpuSwing = 1; /* 헛스윙 */
+        }
+      } else {
+        lastHitter = 'cpu'; bouncedOpp = false;
+        if (inZone || isShort) {
+          flash('OFF BALANCE!', 700);
+          launch(bp.clone(), THREE.MathUtils.clamp((Math.random()-.5)*.35, -.22, .22),
+            .45 + Math.random()*.25, .62);
+          cpuSwing = 1; pop(430,.05,.2);
+        } else {
+          launch(bp.clone(), THREE.MathUtils.clamp((Math.random()-.5)*1.15, -wide, wide),
+            .35 + Math.random()*.85, .5 + Math.random()*.1);
+          cpuSwing = 1; pop(520,.05,.25);
+        }
+      }
     }
   }
 }
