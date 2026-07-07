@@ -3,7 +3,7 @@
 // Credentials: id "a24" / password below — change PASS before deploying.
 
 const USER = 'a24';
-const PASS = 'supreme1952';
+const PASS = 'supreme1952!';
 
 export const config = {
   matcher: '/(.*)',
