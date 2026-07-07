@@ -705,19 +705,20 @@ const SUPABASE_KEY = 'sb_publishable_gUG29oaqEO8cXghlTkPr5w_e6Vy1W_W';  /* anon 
 async function sbFetchTop(){
   if (!SUPABASE_URL) return null;
   try {
-    const r = await fetch(SUPABASE_URL + '/rest/v1/scores?select=nickname,score&order=score.desc&limit=10',
+    const r = await fetch(SUPABASE_URL + '/rest/v1/scores?select=nickname,score&order=score.desc,created_at.desc&limit=10',
       { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY } });
     return r.ok ? await r.json() : null;
   } catch(e){ return null; }
 }
 async function sbSubmit(nickname, score){
-  if (!SUPABASE_URL || !score) return;
+  if (!SUPABASE_URL || score == null) return;
   try {
-    await fetch(SUPABASE_URL + '/rest/v1/scores', {
+    await fetch(SUPABASE_URL + '/rest/v1/scores?on_conflict=player_id', {
       method: 'POST',
       headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY,
-        'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify({ nickname, score })
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ player_id: PID, nickname, score })
     });
   } catch(e){}
 }
@@ -725,6 +726,12 @@ async function sbSubmit(nickname, score){
 let mode = 'match';
 let score = 0, best = parseInt(store.get('prodigy_best') || '0', 10) || 0;
 let nick = store.get('prodigy_nick') || '';
+let PID = store.get('prodigy_pid');
+if (!PID){
+  PID = (crypto.randomUUID ? crypto.randomUUID()
+    : 'p' + Math.random().toString(36).slice(2) + Date.now().toString(36));
+  store.set('prodigy_pid', PID);
+}
 const speedMult = () => Math.min(2.1, 1 + score * 0.025);
 
 /* ================= game state ================= */
@@ -859,7 +866,7 @@ function endlessPoint(mine, reason){
   if (isNew){ best = score; store.set('prodigy_best', best); }
   updateHUD();
   say(tauntsOnCpuPoint(Math.min(score||1, 99)), 2400);
-  sbSubmit(nick, score);
+  sbSubmit(nick, best); /* 항상 개인 최고 기록으로 upsert */
   setTimeout(async ()=>{
     $('finalScore').textContent = score;
     $('deathWhy').textContent = (endlessPoint._why || '') + '  \u00b7  BEST ' + best;
@@ -868,9 +875,11 @@ function endlessPoint(mine, reason){
     lb.innerHTML = '<div class="hint">LOADING…</div>';
     $('over').classList.remove('hidden');
     const top = await sbFetchTop();
-    if (top && top.length){
+    if (top && !top.length){
+      lb.innerHTML = '<div class="hint">NO SCORES YET — BE THE FIRST</div>';
+    } else if (top && top.length){
       lb.innerHTML = top.map((r,i)=>{
-        const me = r.nickname === nick && r.score === score;
+        const me = r.nickname === nick && r.score === best;
         return '<div class="row'+(me?' me':'')+'"><span>'+(i+1)+'. '+
           String(r.nickname).replace(/[<>&]/g,'')+'</span><span>'+r.score+'</span></div>';
       }).join('');
