@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>MARTY SUPREME — Table Tennis</title>
 <meta property="og:type" content="website">
 <meta property="og:title" content="MARTY SUPREME — Table Tennis">
@@ -37,7 +37,7 @@
   /* ---- HUD ---- */
   .gta { font-family:'Haettenschweiler','Impact','Arial Black',sans-serif; letter-spacing:.5px;
     -webkit-text-stroke:2px #000; paint-order:stroke fill; }
-  #hud { position:fixed; top:calc(7vh + 12px); right:18px; z-index:22; text-align:right;
+  #hud { position:fixed; top:calc(env(safe-area-inset-top, 0px) + 7vh + 12px); right:max(env(safe-area-inset-right),18px); z-index:22; text-align:right;
     pointer-events:none; display:none; }
   #score { font-size:52px; color:#e8c15a; line-height:.9; }
   #score .cpu { color:#dcdcdc; }
@@ -59,6 +59,7 @@
 
   /* ---- title ---- */
   #menu { position:fixed; inset:0; z-index:30; display:flex; flex-direction:column;
+    padding:max(env(safe-area-inset-top),24px) 24px max(env(safe-area-inset-bottom),24px); gap:0;
     align-items:center; justify-content:center; background:rgba(0,0,0,.35); cursor:pointer; }
   #menu h1 { font-size:min(15vw,96px); color:#e8c15a; -webkit-text-stroke:3px #000;
     font-family:'Haettenschweiler','Impact','Arial Black',sans-serif; line-height:.95; text-align:center; }
@@ -74,7 +75,8 @@
     text-align:center; background:rgba(0,0,0,.55); color:#e8e4da; border:2px solid #555;
     border-radius:4px; outline:none; letter-spacing:1px; }
   #nick:focus { border-color:#e8c15a; }
-  .btns { margin-top:22px; display:flex; gap:14px; }
+  .btns { margin-top:20px; display:flex; flex-direction:column; gap:12px;
+    width:min(78vw,320px); }
   .btns button { font-family:'Haettenschweiler','Impact','Arial Black',sans-serif;
     font-size:24px; letter-spacing:1px; padding:12px 26px; cursor:pointer;
     background:#e8c15a; color:#111; border:3px solid #000; border-radius:4px;
@@ -113,7 +115,7 @@
   #missionTag { color:var(--or); font-size:12px; letter-spacing:.5em; text-indent:.5em; }
   #menu { background:rgba(4,4,4,.55); }
   .lock { text-align:center; user-select:none; }
-  .lock .l1 { font:700 min(19vw,120px)/0.95 'Futura','Century Gothic','Avenir Next','Helvetica Neue',Arial,sans-serif;
+  .lock .l1 { font:700 min(16vw,110px)/0.95 'Futura','Century Gothic','Avenir Next','Helvetica Neue',Arial,sans-serif;
     color:var(--or); letter-spacing:.06em; text-indent:.06em; }
   .lock .l2 { font:700 min(8.4vw,53px)/1.15 'Futura','Century Gothic','Avenir Next','Helvetica Neue',Arial,sans-serif;
     color:var(--or); letter-spacing:.245em; text-indent:.245em; }
@@ -123,15 +125,17 @@
   #menu p { color:rgba(242,237,228,.4); font-size:12px; letter-spacing:.05em; }
   #nick { background:transparent; border:none; border-bottom:2px solid #3a3a3a; border-radius:0;
     font-family:'Futura','Century Gothic',Arial,sans-serif; font-weight:700; letter-spacing:.2em;
-    text-transform:uppercase; color:var(--ink); }
+    text-transform:uppercase; color:var(--ink); padding:12px 8px; width:min(78vw,320px); text-align:center; }
   #nick:focus { border-bottom-color:var(--or); }
+  #nick::placeholder { color:rgba(242,237,228,.38); }
   #nick.shake { animation:nickShake .45s; border-bottom-color:#e05a3a; }
   @keyframes nickShake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)}
     40%,80%{transform:translateX(8px)} }
   .btns button { font-family:'Futura','Century Gothic','Avenir Next',Arial,sans-serif; font-weight:700;
-    font-size:15px; letter-spacing:.2em; text-indent:.2em; text-transform:uppercase;
-    background:var(--or); color:#000; border:none; border-radius:0; box-shadow:none; padding:15px 26px; }
-  .btns button.alt { background:transparent; color:var(--ink); border:1.5px solid #4a4a4a; }
+    font-size:16px; letter-spacing:.2em; text-indent:.2em; text-transform:uppercase; white-space:nowrap;
+    background:var(--or); color:#000; border:none; border-radius:8px; box-shadow:none;
+    padding:17px 26px; width:100%; }
+  .btns button.alt { background:rgba(242,237,228,.09); color:var(--ink); border:1.5px solid rgba(242,237,228,.4); }
   .btns button:active { transform:none; opacity:.75; }
   #over { background:rgba(4,4,4,.82); }
   #over h2 { font-family:'Futura','Century Gothic',Arial,sans-serif; color:var(--ink);
@@ -146,7 +150,7 @@
     font:700 13px 'Futura','Century Gothic',Arial,sans-serif; letter-spacing:.08em; color:rgba(242,237,228,.8); }
   #lb .row { border-bottom:1px solid #1c1c1c; padding:6px 0; }
   #lb .row.me { color:var(--or); }
-  #pauseBtn { position:fixed; top:calc(7vh + 118px); right:18px; z-index:24; display:none;
+  #pauseBtn { position:fixed; top:calc(env(safe-area-inset-top, 0px) + 7vh + 118px); right:max(env(safe-area-inset-right),18px); z-index:24; display:none;
     width:40px; height:40px; cursor:pointer; background:rgba(10,10,10,.45);
     border:1.5px solid rgba(242,237,228,.25); color:rgba(242,237,228,.75);
     font:700 14px Arial; line-height:37px; text-align:center; letter-spacing:2px; text-indent:2px;
@@ -177,7 +181,7 @@
 </div>
 <div id="msg" class="gta"></div>
 <div id="subtitle"></div>
-<div id="buildTag">BUILD 7.9</div>
+<div id="buildTag">BUILD 8.3</div>
 <div id="missionTag" class="gta">— FIRST TO ELEVEN —</div>
 
 <div id="menu">
