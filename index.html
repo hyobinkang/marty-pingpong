@@ -177,7 +177,7 @@
 </div>
 <div id="msg" class="gta"></div>
 <div id="subtitle"></div>
-<div id="buildTag">BUILD 7.6</div>
+<div id="buildTag">BUILD 7.7</div>
 <div id="missionTag" class="gta">— FIRST TO ELEVEN —</div>
 
 <div id="menu">
@@ -795,6 +795,7 @@ async function sbSubmit(nickname, score){
 let mode = 'match';
 let score = 0, best = parseInt(store.get('prodigy_best') || '0', 10) || 0;
 let nick = store.get('prodigy_nick') || '';
+if (/^player$/i.test(nick)) nick = ''; /* 과거 폴백값 무효화 */
 let PID = store.get('prodigy_pid');
 if (!PID){
   PID = (crypto.randomUUID ? crypto.randomUUID()
@@ -1014,7 +1015,7 @@ document.getElementById('btnRetry').addEventListener('click', e => { e.stopPropa
 document.getElementById('btnMenu').addEventListener('click', e => {
   e.stopPropagation(); quitToMenu();
 });
-document.getElementById('nick').value = nick;
+/* 입력란은 항상 비워둠 — 닉네임 강제 입력 유도 */
 addEventListener('pointerdown', e => { onMove(e.clientX,e.clientY); onAction(); });
 
 /* ================= simulation ================= */
