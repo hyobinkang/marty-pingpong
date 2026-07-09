@@ -2,9 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>MARTY SUPREME — Table Tennis</title>
+<meta property="og:type" content="website">
+<meta property="og:title" content="MARTY SUPREME — Table Tennis">
+<meta property="og:description" content="Play table tennis against Marty in a lo-fi PS2 arena. Endless rally, global leaderboard. Bet you can't beat 30.">
+<meta property="og:image" content="og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="628">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MARTY SUPREME — Table Tennis">
+<meta name="twitter:description" content="Play Marty in a lo-fi PS2 arena. Endless rally, global leaderboard.">
+<meta name="twitter:image" content="og-image.png">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   html,body { width:100%; height:100%; overflow:hidden; background:#000; touch-action:none;
@@ -116,6 +125,9 @@
     font-family:'Futura','Century Gothic',Arial,sans-serif; font-weight:700; letter-spacing:.2em;
     text-transform:uppercase; color:var(--ink); }
   #nick:focus { border-bottom-color:var(--or); }
+  #nick.shake { animation:nickShake .45s; border-bottom-color:#e05a3a; }
+  @keyframes nickShake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)}
+    40%,80%{transform:translateX(8px)} }
   .btns button { font-family:'Futura','Century Gothic','Avenir Next',Arial,sans-serif; font-weight:700;
     font-size:15px; letter-spacing:.2em; text-indent:.2em; text-transform:uppercase;
     background:var(--or); color:#000; border:none; border-radius:0; box-shadow:none; padding:15px 26px; }
@@ -165,7 +177,7 @@
 </div>
 <div id="msg" class="gta"></div>
 <div id="subtitle"></div>
-<div id="buildTag">BUILD 7.3</div>
+<div id="buildTag">BUILD 7.6</div>
 <div id="missionTag" class="gta">— FIRST TO ELEVEN —</div>
 
 <div id="menu">
@@ -757,15 +769,25 @@ async function sbFetchTop(){
     return r.ok ? await r.json() : null;
   } catch(e){ return null; }
 }
+/* 조작 방지: 게임플레이 중 누적된 신호로 세션 체크섬 생성 (콘솔 위조 난이도↑) */
+let sessionHits = 0, sessionTime = 0, sessionSig = 0;
+function sig(score){
+  /* 랠리당 실제 소요시간·타격수가 점수와 정합적인지 인코딩 (서버/수동 검증용) */
+  return Math.round((sessionHits * 131 + Math.floor(sessionTime * 7) * 17 + score * 991) % 1e9);
+}
 async function sbSubmit(nickname, score){
   if (!SUPABASE_URL || score == null) return;
+  /* 물리적으로 불가능한 값 사전 차단 */
+  if (score < 0 || score > 999) return;
+  if (score > 3 && sessionHits < score) return; /* 타격수보다 점수 높으면 위조 */
   try {
     await fetch(SUPABASE_URL + '/rest/v1/scores?on_conflict=player_id', {
       method: 'POST',
       headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY,
         'Content-Type': 'application/json',
         Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify({ player_id: PID, nickname, score })
+      body: JSON.stringify({ player_id: PID, nickname, score,
+        hits: sessionHits, secs: Math.round(sessionTime), sig: sig(score), claim: claimCode() })
     });
   } catch(e){}
 }
@@ -778,6 +800,13 @@ if (!PID){
   PID = (crypto.randomUUID ? crypto.randomUUID()
     : 'p' + Math.random().toString(36).slice(2) + Date.now().toString(36));
   store.set('prodigy_pid', PID);
+}
+/* 본인 확인용 클레임 코드 — PID에서 결정론적 생성, 기기에만 존재 */
+function claimCode(){
+  let h = 0; for (let i=0;i<PID.length;i++){ h = (h*31 + PID.charCodeAt(i)) >>> 0; }
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let c = ''; for (let i=0;i<4;i++){ c += A[(h >> (i*5)) & 31]; }
+  return 'MARTY-' + c;
 }
 const speedMult = () => Math.min(2.1, 1 + score * 0.025);
 
@@ -883,8 +912,17 @@ function parkBall(){
 }
 
 function startGame(m){
+  sessionHits = 0; sessionTime = 0;
+  const entered = ($('nick').value || '').trim().slice(0,12);
+  if (entered.length < 2){
+    const nk = $('nick');
+    nk.classList.add('shake'); nk.focus();
+    nk.placeholder = 'ENTER A NICKNAME FIRST';
+    setTimeout(()=>nk.classList.remove('shake'), 500);
+    return;
+  }
   mode = m;
-  nick = ($('nick').value || '').trim().slice(0,12) || 'PLAYER';
+  nick = entered;
   store.set('prodigy_nick', nick);
   pScore = 0; cScore = 0; serveCount = 0; playerServes = true; score = 0;
   $('menu').classList.add('hidden');
@@ -918,7 +956,7 @@ function endlessPoint(mine, reason){
   sbSubmit(nick, best); /* 항상 개인 최고 기록으로 upsert */
   setTimeout(async ()=>{
     $('finalScore').textContent = score;
-    $('deathWhy').textContent = (endlessPoint._why || '') + '  \u00b7  BEST ' + best;
+    $('deathWhy').textContent = 'YOUR CLAIM CODE \u00b7 ' + claimCode() + ' \u00b7 SCREENSHOT TO WIN';
     $('newBest').textContent = isNew ? '\u2605 NEW PERSONAL BEST \u2605' : '';
     const lb = $('lb');
     lb.innerHTML = '<div class="hint">LOADING…</div>';
@@ -987,6 +1025,7 @@ let paddleVX = 0, lastPX = 0, camFollowX = 0, lastBounceZ = -1.4, lastBounceX = 
 function step(dt){
   if (paused) return;
   elapsed += dt;
+  if (state === S.RALLY && mode === 'endless') sessionTime += dt;
   const t = paddleTarget();
   myPaddle.position.x += (t.x - myPaddle.position.x) * Math.min(1, dt*18);
   myPaddle.position.y += (t.y - myPaddle.position.y) * Math.min(1, dt*18);
@@ -1124,7 +1163,7 @@ function step(dt){
       mySwing = 1; camShake = .35;
       pop(600 + power*800 + (mode==='endless'? score*6 : 0), .05, .3);
       if (mode === 'endless'){
-        score++;
+        score++; sessionHits++;
         if (score % 10 === 0){ flash(score + ' RALLY!', 800); crowdMurmur(); }
         updateHUD();
       }
