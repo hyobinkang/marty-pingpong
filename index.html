@@ -75,8 +75,8 @@
     text-align:center; background:rgba(0,0,0,.55); color:#e8e4da; border:2px solid #555;
     border-radius:4px; outline:none; letter-spacing:1px; }
   #nick:focus { border-color:#e8c15a; }
-  .btns { margin-top:20px; display:flex; flex-direction:column; gap:12px;
-    width:min(78vw,320px); }
+  .btns { margin-top:18px; display:flex; flex-direction:column; gap:10px;
+    width:min(80vw,320px); }
   .btns button { font-family:'Haettenschweiler','Impact','Arial Black',sans-serif;
     font-size:24px; letter-spacing:1px; padding:12px 26px; cursor:pointer;
     background:#e8c15a; color:#111; border:3px solid #000; border-radius:4px;
@@ -124,17 +124,18 @@
     letter-spacing:.5em; text-indent:.5em; margin-top:16px; }
   #menu p { color:rgba(242,237,228,.4); font-size:12px; letter-spacing:.05em; }
   #nick { background:transparent; border:none; border-bottom:2px solid #3a3a3a; border-radius:0;
-    font-family:'Futura','Century Gothic',Arial,sans-serif; font-weight:700; letter-spacing:.2em;
-    text-transform:uppercase; color:var(--ink); padding:12px 8px; width:min(78vw,320px); text-align:center; }
+    font-family:'Futura','Century Gothic',Arial,sans-serif; font-weight:700; letter-spacing:.12em;
+    font-size:16px; text-transform:uppercase; color:var(--ink); padding:11px 8px;
+    width:min(80vw,320px); text-align:center; }
   #nick:focus { border-bottom-color:var(--or); }
   #nick::placeholder { color:rgba(242,237,228,.38); }
   #nick.shake { animation:nickShake .45s; border-bottom-color:#e05a3a; }
   @keyframes nickShake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)}
     40%,80%{transform:translateX(8px)} }
   .btns button { font-family:'Futura','Century Gothic','Avenir Next',Arial,sans-serif; font-weight:700;
-    font-size:16px; letter-spacing:.2em; text-indent:.2em; text-transform:uppercase; white-space:nowrap;
+    font-size:15px; letter-spacing:.18em; text-indent:.18em; text-transform:uppercase; white-space:nowrap;
     background:var(--or); color:#000; border:none; border-radius:8px; box-shadow:none;
-    padding:17px 26px; width:100%; }
+    padding:14px 24px; width:100%; }
   .btns button.alt { background:rgba(242,237,228,.09); color:var(--ink); border:1.5px solid rgba(242,237,228,.4); }
   .btns button:active { transform:none; opacity:.75; }
   #over { background:rgba(4,4,4,.82); }
@@ -181,7 +182,7 @@
 </div>
 <div id="msg" class="gta"></div>
 <div id="subtitle"></div>
-<div id="buildTag">BUILD 8.3</div>
+<div id="buildTag">BUILD 8.4</div>
 <div id="missionTag" class="gta">— FIRST TO ELEVEN —</div>
 
 <div id="menu">
@@ -922,7 +923,7 @@ function startGame(m){
   if (entered.length < 2){
     const nk = $('nick');
     nk.classList.add('shake'); nk.focus();
-    nk.placeholder = 'ENTER A NICKNAME FIRST';
+    nk.placeholder = 'NICKNAME REQUIRED';
     setTimeout(()=>nk.classList.remove('shake'), 500);
     return;
   }
