@@ -177,7 +177,7 @@
 </div>
 <div id="msg" class="gta"></div>
 <div id="subtitle"></div>
-<div id="buildTag">BUILD 7.8</div>
+<div id="buildTag">BUILD 7.9</div>
 <div id="missionTag" class="gta">— FIRST TO ELEVEN —</div>
 
 <div id="menu">
@@ -1141,14 +1141,22 @@ function step(dt){
     return;
   }
 
-  /* --- 플레이어 히트 --- */
+  /* --- 플레이어 히트 ---
+     r/threejs 조언: forgiveness는 invisible + asymmetric.
+     [판정] 빠른 공/늦은 접촉일수록 창을 넓혀 억울한 미스 제거(assist),
+     [결과] 방향·속도는 넓힌 창과 무관하게 실제 접촉점(dx)에만 묶어 sticky함 제거. */
   if (ballV.z > 0 && bp.z >= PLAY.z - .12 && bp.z <= PLAY.z + .25) {
     const dx = bp.x - myPaddle.position.x, dy = bp.y - myPaddle.position.y;
-    if (Math.abs(dx) < (IS_MOBILE ? .46 : .34) && Math.abs(dy) < (IS_MOBILE ? .52 : .40) && bouncedOpp) {
+    const baseX = IS_MOBILE ? .40 : .30, baseY = IS_MOBILE ? .46 : .36;
+    const speedF = THREE.MathUtils.clamp((Math.abs(ballV.z) - 3.5) / 6, 0, 1);
+    const lateF  = THREE.MathUtils.clamp((bp.z - PLAY.z) / .25, 0, 1);
+    const assist = 1 + speedF * .55 + lateF * .35;
+    if (Math.abs(dx) < baseX * assist && Math.abs(dy) < baseY * assist && bouncedOpp) {
       lastHitter = 'me'; bouncedOpp = false;
       const power = Math.min(.22, Math.hypot(pointer.vx, pointer.vy)*3);
       const T = .68 - power - Math.random()*.05;
-      const aimX = THREE.MathUtils.clamp(dx * 2.2 + paddleVX * 0.15, -.68, .68); /* 펐 방식: 라켓 오른쪽에 맞으면 오른쪽으로 */
+      const trueDx = THREE.MathUtils.clamp(dx, -baseX, baseX); /* 결과는 실제 접촉점 기준 */
+      const aimX = THREE.MathUtils.clamp(trueDx * 2.2 + paddleVX * 0.15, -.68, .68); /* 펐 방식: 라켓 오른쪽에 맞으면 오른쪽으로 */
       const aimZ = -(.42 + power*2.9 + Math.random()*.12); /* 살살=짧게, 세게=깊게 */
       /* 네트 클리어런스 보정: 걸릴 궤적이면 T를 늘려 띄움 */
       let Tf = Math.max(T, .42);
