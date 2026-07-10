@@ -170,6 +170,7 @@
     #finalScore { font-size: clamp(26px, 9vw, 42px); margin-top: 6px; }
     #newBest { font-size: clamp(11px, 3.2vw, 15px); }
     #deathWhy { font-size: clamp(9px, 2.6vw, 11px); letter-spacing: .16em; }
+    #deathWhy .dot { display: none; }   /* 모바일: 코드 뒤 점 제거 (SCREENSHOT은 다음 줄로) */
     #lb { width: min(78vw, 320px); margin-top: 14px; max-height: 36vh;
           font-size: clamp(10px, 2.9vw, 12px); }
     #lb .row { padding: 5px 0; }
@@ -1017,7 +1018,7 @@ function endlessPoint(mine, reason){
   sbSubmit(nick, best, isNew ? score : null); /* 개인최고로 upsert(닉네임 포함). 신기록일 때만 타격수 검증 */
   setTimeout(async ()=>{
     $('finalScore').textContent = score;
-    $('deathWhy').textContent = 'YOUR\u00a0CLAIM\u00a0CODE \u00b7 ' + claimCode() + ' \u00b7 SCREENSHOT\u00a0TO\u00a0WIN';
+    $('deathWhy').innerHTML = 'YOUR\u00a0CLAIM\u00a0CODE: ' + claimCode() + '<span class="dot"> \u00b7</span> SCREENSHOT\u00a0TO\u00a0WIN';
     $('newBest').textContent = isNew ? '\u2605 NEW PERSONAL BEST \u2605' : '';
     const lb = $('lb');
     lb.innerHTML = '<div class="hint">LOADING…</div>';
