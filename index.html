@@ -981,8 +981,11 @@ async function startGame(m){
   parkBall(); pop(660,.1,.2);
 }
 function endlessPoint(mine, reason){
-  if (mine){ /* 상대 실책(드묾): 목숨 유지, 재서브 */
-    flash(reason || 'AGAIN!', 700);
+  /* 생존 규칙: '내가 친 공이 상대 코트에 꽂혀 상대가 못 받은 위닝샷'일 때만 랠리 계속.
+     그 외 모든 종료(내가 못 받음 / 네트 / 아웃 / 뒤로 넘어감)는 즉시 게임오버. */
+  const winnerRally = (lastHitter === 'me' && bouncedOpp);
+  if (winnerRally){
+    flash(reason || 'RALLY WON!', 700);
     state = S.POINT; pointTimer = .8;
     return;
   }
@@ -1002,6 +1005,8 @@ function endlessPoint(mine, reason){
     $('newBest').textContent = isNew ? '\u2605 NEW PERSONAL BEST \u2605' : '';
     const lb = $('lb');
     lb.innerHTML = '<div class="hint">LOADING…</div>';
+    $('hud').style.display = 'none';       /* 인게임 점수판 숨김 — 오버 화면과 겹침 방지 */
+    $('pauseBtn').style.display = 'none';
     $('over').classList.remove('hidden');
     const top = await sbFetchTop();
     if (top && !top.length){
