@@ -805,11 +805,13 @@ function sig(score){
   /* 랠리당 실제 소요시간·타격수가 점수와 정합적인지 인코딩 (서버/수동 검증용) */
   return Math.round((sessionHits * 131 + Math.floor(sessionTime * 7) * 17 + score * 991) % 1e9);
 }
-async function sbSubmit(nickname, score){
+async function sbSubmit(nickname, score, freshScore){
   if (!SUPABASE_URL || score == null) return;
   /* 물리적으로 불가능한 값 사전 차단 */
   if (score < 0 || score > 999) return;
-  if (score > 3 && sessionHits < score) return; /* 타격수보다 점수 높으면 위조 */
+  /* 부정방지 타격수 검증은 '이번 세션에 실제로 딴 점수'에만 적용.
+     닉네임만 바꾸고 재제출(개인최고 갱신 아님)할 땐 건너뛰어 닉네임이 항상 반영되게 함. */
+  if (freshScore != null && freshScore > 3 && sessionHits < freshScore) return;
   try {
     await fetch(SUPABASE_URL + '/rest/v1/scores?on_conflict=player_id', {
       method: 'POST',
@@ -994,7 +996,7 @@ function endlessPoint(mine, reason){
   if (isNew){ best = score; store.set('prodigy_best', best); }
   updateHUD();
   say(tauntsOnCpuPoint(Math.min(score||1, 99)), 2400);
-  sbSubmit(nick, best); /* 항상 개인 최고 기록으로 upsert */
+  sbSubmit(nick, best, isNew ? score : null); /* 개인최고로 upsert(닉네임 포함). 신기록일 때만 타격수 검증 */
   setTimeout(async ()=>{
     $('finalScore').textContent = score;
     $('deathWhy').textContent = 'YOUR CLAIM CODE \u00b7 ' + claimCode() + ' \u00b7 SCREENSHOT TO WIN';
