@@ -132,6 +132,10 @@
   #nick.shake { animation:nickShake .45s; border-bottom-color:#e05a3a; }
   @keyframes nickShake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)}
     40%,80%{transform:translateX(8px)} }
+  #nickMsg { min-height:13px; margin-top:9px; font:700 11px 'Futura','Century Gothic',Arial,sans-serif;
+    letter-spacing:.16em; text-transform:uppercase; color:#e05a3a; text-align:center;
+    opacity:0; transition:opacity .2s; }
+  #nickMsg.show { opacity:1; }
   .btns button { font-family:'Futura','Century Gothic','Avenir Next',Arial,sans-serif; font-weight:700;
     font-size:15px; letter-spacing:.18em; text-indent:.18em; text-transform:uppercase; white-space:nowrap;
     background:var(--or); color:#000; border:none; border-radius:8px; box-shadow:none;
@@ -151,6 +155,12 @@
     font:700 13px 'Futura','Century Gothic',Arial,sans-serif; letter-spacing:.08em; color:rgba(242,237,228,.8); }
   #lb .row { border-bottom:1px solid #1c1c1c; padding:6px 0; }
   #lb .row.me { color:var(--or); }
+  /* 심플 주황 스크롤바 */
+  #lb { scrollbar-width:thin; scrollbar-color:var(--or) transparent; }
+  #lb::-webkit-scrollbar { width:5px; }
+  #lb::-webkit-scrollbar-track { background:transparent; }
+  #lb::-webkit-scrollbar-thumb { background:var(--or); border-radius:3px; }
+  #lb::-webkit-scrollbar-thumb:hover { background:#ff7a2e; }
   #pauseBtn { position:fixed; top:calc(env(safe-area-inset-top, 0px) + 7vh + 118px); right:max(env(safe-area-inset-right),18px); z-index:24; display:none;
     width:40px; height:40px; cursor:pointer; background:rgba(10,10,10,.45);
     border:1.5px solid rgba(242,237,228,.25); color:rgba(242,237,228,.75);
@@ -193,6 +203,7 @@
     <div class="l3">TABLE TENNIS · 1952</div>
   </div>
   <input id="nick" maxlength="12" placeholder="ENTER NICKNAME" autocomplete="off">
+  <div id="nickMsg"></div>
   <div class="btns">
     <button id="btnEndless">ENDLESS RALLY</button>
     <button id="btnMatch" class="alt">MATCH · TO 11</button>
@@ -769,10 +780,24 @@ const SUPABASE_KEY = 'sb_publishable_gUG29oaqEO8cXghlTkPr5w_e6Vy1W_W';  /* anon 
 async function sbFetchTop(){
   if (!SUPABASE_URL) return null;
   try {
-    const r = await fetch(SUPABASE_URL + '/rest/v1/scores?select=nickname,score&order=score.desc,created_at.desc&limit=10',
+    /* 전체 랭킹 표시 — 큰 상한만 두고 사실상 전부 로드 (컨테이너가 스크롤됨) */
+    const r = await fetch(SUPABASE_URL + '/rest/v1/scores?select=nickname,score&order=score.desc,created_at.desc&limit=1000',
       { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY } });
     return r.ok ? await r.json() : null;
   } catch(e){ return null; }
+}
+/* 닉네임 중복 검사: 나(PID) 이외의 누군가가 이미 같은 닉을 쓰고 있으면 true
+   (대소문자 무시, Supabase 연결 안 되면 fail-open으로 게임 진행 막지 않음) */
+async function sbNickTaken(nickname){
+  if (!SUPABASE_URL) return false;
+  try {
+    const r = await fetch(SUPABASE_URL + '/rest/v1/scores?select=nickname,player_id&nickname=ilike.' + encodeURIComponent(nickname),
+      { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY } });
+    if (!r.ok) return false;
+    const rows = await r.json();
+    const lower = nickname.toLowerCase();
+    return rows.some(x => x.player_id !== PID && String(x.nickname).toLowerCase() === lower);
+  } catch(e){ return false; }
 }
 /* 조작 방지: 게임플레이 중 누적된 신호로 세션 체크섬 생성 (콘솔 위조 난이도↑) */
 let sessionHits = 0, sessionTime = 0, sessionSig = 0;
@@ -917,16 +942,26 @@ function parkBall(){
   else { const tp = currentTip(); ball.position.set(prodigy.position.x + tp.x, tp.y + .05, prodigy.position.z + tp.z); }
 }
 
-function startGame(m){
+async function startGame(m){
   sessionHits = 0; sessionTime = 0;
-  const entered = ($('nick').value || '').trim().slice(0,12);
+  const nk = $('nick'), nm = $('nickMsg');
+  const entered = (nk.value || '').trim().slice(0,12);
   if (entered.length < 2){
-    const nk = $('nick');
     nk.classList.add('shake'); nk.focus();
     nk.placeholder = 'NICKNAME REQUIRED';
+    if (nm){ nm.textContent = 'ENTER AT LEAST 2 CHARACTERS'; nm.classList.add('show'); }
     setTimeout(()=>nk.classList.remove('shake'), 500);
     return;
   }
+  /* 이 기기에서 쓰던 닉이 아니면 전역 중복 확인 → 이미 있으면 다른 닉 요청 */
+  const prevNick = store.get('prodigy_nick') || '';
+  if (entered.toLowerCase() !== prevNick.toLowerCase() && await sbNickTaken(entered)){
+    nk.classList.add('shake'); nk.focus();
+    if (nm){ nm.textContent = 'NICKNAME TAKEN — TRY ANOTHER ONE'; nm.classList.add('show'); }
+    setTimeout(()=>nk.classList.remove('shake'), 500);
+    return;
+  }
+  if (nm) nm.classList.remove('show');
   mode = m;
   nick = entered;
   store.set('prodigy_nick', nick);
@@ -1017,6 +1052,7 @@ function onAction(){
 document.getElementById('btnEndless').addEventListener('click', e => { e.stopPropagation(); startGame('endless'); });
 document.getElementById('btnMatch').addEventListener('click', e => { e.stopPropagation(); startGame('match'); });
 document.getElementById('btnRetry').addEventListener('click', e => { e.stopPropagation(); startGame(mode); });
+document.getElementById('nick').addEventListener('input', () => { const nm = $('nickMsg'); if (nm) nm.classList.remove('show'); });
 document.getElementById('btnMenu').addEventListener('click', e => {
   e.stopPropagation(); quitToMenu();
 });
