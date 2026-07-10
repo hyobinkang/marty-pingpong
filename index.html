@@ -807,19 +807,18 @@ function sig(score){
 }
 async function sbSubmit(nickname, score, freshScore){
   if (!SUPABASE_URL || score == null) return;
-  /* 물리적으로 불가능한 값 사전 차단 */
+  /* 물리적으로 불가능한 값 사전 차단 (진짜 검증은 서버 RPC가 함) */
   if (score < 0 || score > 999) return;
-  /* 부정방지 타격수 검증은 '이번 세션에 실제로 딴 점수'에만 적용.
-     닉네임만 바꾸고 재제출(개인최고 갱신 아님)할 땐 건너뛰어 닉네임이 항상 반영되게 함. */
   if (freshScore != null && freshScore > 3 && sessionHits < freshScore) return;
   try {
-    await fetch(SUPABASE_URL + '/rest/v1/scores?on_conflict=player_id', {
+    /* 테이블 직접 쓰기(RLS로 차단됨) 대신 검증·저장 RPC 호출.
+       hits/secs/sig 갱신 여부는 서버가 '신기록일 때만'으로 처리 → 무결성 필드 오염 방지 */
+    await fetch(SUPABASE_URL + '/rest/v1/rpc/submit_score', {
       method: 'POST',
       headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY,
-        'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify({ player_id: PID, nickname, score,
-        hits: sessionHits, secs: Math.round(sessionTime), sig: sig(score), claim: claimCode() })
+        'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_player_id: PID, p_nickname: nickname, p_score: score,
+        p_hits: sessionHits, p_secs: Math.round(sessionTime), p_sig: sig(score), p_claim: claimCode() })
     });
   } catch(e){}
 }
