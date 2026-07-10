@@ -1017,7 +1017,7 @@ function endlessPoint(mine, reason){
   sbSubmit(nick, best, isNew ? score : null); /* 개인최고로 upsert(닉네임 포함). 신기록일 때만 타격수 검증 */
   setTimeout(async ()=>{
     $('finalScore').textContent = score;
-    $('deathWhy').textContent = 'YOUR CLAIM CODE \u00b7 ' + claimCode() + ' \u00b7 SCREENSHOT TO WIN';
+    $('deathWhy').textContent = 'YOUR\u00a0CLAIM\u00a0CODE \u00b7 ' + claimCode() + ' \u00b7 SCREENSHOT\u00a0TO\u00a0WIN';
     $('newBest').textContent = isNew ? '\u2605 NEW PERSONAL BEST \u2605' : '';
     const lb = $('lb');
     lb.innerHTML = '<div class="hint">LOADING…</div>';
