@@ -209,7 +209,7 @@
 </div>
 <div id="msg" class="gta"></div>
 <div id="subtitle"></div>
-<div id="buildTag">BUILD 8.9</div>
+<div id="buildTag">BUILD 9.0</div>
 <div id="missionTag" class="gta">— FIRST TO ELEVEN —</div>
 
 <div id="menu">
@@ -1274,10 +1274,19 @@ function step(dt){
       if (heightOk && bouncedOpp && Math.abs(bp.x - prodigy.position.x) < .55) {
         lastHitter = 'cpu'; bouncedOpp = false;
         const m = speedMult();
-        const T = Math.max(.18, (.55 + Math.random()*.07)/m); /* floor .18: 이게 실질 속도 상한 — 고득점까지 계속 빨라짐 */
         const spread = Math.min(1.28, .8 + (m-1)*.85);
-        launch(bp.clone(), THREE.MathUtils.clamp((Math.random()-.5)*spread, -wide, wide),
-          .35 + Math.random()*.85, T);
+        const tx = THREE.MathUtils.clamp((Math.random()-.5)*spread, -wide, wide);
+        const tz = .35 + Math.random()*.85; /* 플레이어 코트 안(≤1.2 < L/2 1.37) */
+        let Tc = Math.max(.18, (.55 + Math.random()*.07)/m); /* floor .18: 실질 속도 상한 */
+        /* 네트 클리어런스: 걸릴 궤적이면 T를 살짝 늘려 띄움 → 마티 공이 네트/아웃으로 안 빠짐 */
+        for (let li=0; li<7; li++){
+          const vy = (TABLE.H + .021 - bp.y + .5*G*Tc*Tc)/Tc;
+          const vz = (tz - bp.z)/Tc;
+          const tn = -bp.z/vz;
+          if (bp.y + vy*tn - 4.9*tn*tn > TABLE.H + TABLE.NET + .03) break;
+          Tc += .04;
+        }
+        launch(bp.clone(), tx, tz, Tc);
         cpuSwing = 1; pop(520,.05,.25);
       }
     } else if (heightOk && bouncedOpp) {
