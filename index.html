@@ -209,7 +209,7 @@
 </div>
 <div id="msg" class="gta"></div>
 <div id="subtitle"></div>
-<div id="buildTag">BUILD 8.4</div>
+<div id="buildTag">BUILD 8.9</div>
 <div id="missionTag" class="gta">— FIRST TO ELEVEN —</div>
 
 <div id="menu">
@@ -857,7 +857,14 @@ function claimCode(){
   let c = ''; for (let i=0;i<4;i++){ c += A[(h >> (i*5)) & 31]; }
   return 'MARTY-' + c;
 }
-const speedMult = () => Math.min(2.1, 1 + score * 0.025);
+const speedMult = () => {
+  /* 초반부터 예전보다 가파르게(rate 0.03), 캡 3.6 으로 오래 가속. */
+  const base = Math.min(3.6, 1 + score * 0.03);
+  /* 주기적 슬로우다운(톱니): 20점마다 잠깐 -10% 늦췄다 다시 붙음 → 대비로 '빨라짐'이 또렷이 체감 */
+  const period = 20, phase = (score % period) / period;
+  const dip = 0.10 * Math.max(0, 1 - phase / 0.30);
+  return base * (1 - dip);
+};
 
 /* ================= game state ================= */
 const S = { MENU:0, SERVE_ME:1, SERVE_CPU:2, RALLY:3, POINT:4, OVER:5 };
@@ -1009,7 +1016,7 @@ function endlessPoint(mine, reason){
   /* 죽음 */
   state = S.OVER; camShake = .6;
   pop(190,.25,.3);
-  flash('OUT', 1600);
+  flash(reason || 'OUT', 1600);
   endlessPoint._why = reason || 'MISSED';
   const isNew = score > best;
   if (isNew){ best = score; store.set('prodigy_best', best); }
@@ -1165,9 +1172,14 @@ function step(dt){
   ballV.y -= G * dt;
   const bp = ball.position;
 
-  /* 네트 충돌 */
+  /* 네트 충돌 — 엔드리스는 속도 재미 위주라 네트로 죽지 않음(항상 랠리 계속) */
   if (Math.abs(bp.z) < .02 && bp.y < TABLE.H + TABLE.NET && bp.y > TABLE.H - .02 && Math.abs(bp.x) < TABLE.W/2+.1) {
     pop(240,.08,.25);
+    if (mode === 'endless'){
+      bouncedOpp = true; lastHitter = 'me';
+      endlessPoint(true, 'LET \u00b7 PLAY ON');
+      return;
+    }
     scorePoint(lastHitter==='cpu', lastHitter==='cpu' ? 'NET — POINT!' : 'NET');
     return;
   }
@@ -1186,7 +1198,7 @@ function step(dt){
       pop(340,.045,.22);
       const oppSide = lastHitter==='me' ? bp.z < 0 : bp.z > 0;
       if (oppSide) bouncedOpp = true;
-      else if (bouncedOpp === false && Math.abs(bp.z) > .03) {
+      else if (mode !== 'endless' && bouncedOpp === false && Math.abs(bp.z) > .03) {
         scorePoint(lastHitter==='cpu', lastHitter==='cpu' ? 'MARTY ERROR!' : 'OUT');
         return;
       }
@@ -1220,12 +1232,17 @@ function step(dt){
       const power = Math.min(.22, Math.hypot(pointer.vx, pointer.vy)*3);
       const T = .68 - power - Math.random()*.05;
       const trueDx = THREE.MathUtils.clamp(dx, -baseX, baseX); /* 결과는 실제 접촉점 기준 */
-      const aimX = THREE.MathUtils.clamp(trueDx * 2.2 + paddleVX * 0.15, -.68, .68); /* 펐 방식: 라켓 오른쪽에 맞으면 오른쪽으로 */
-      const aimZ = -(.42 + power*2.9 + Math.random()*.12); /* 살살=짧게, 세게=깊게 */
+      let aimX = THREE.MathUtils.clamp(trueDx * 2.2 + paddleVX * 0.15, -.68, .68); /* 펐 방식: 라켓 오른쪽에 맞으면 오른쪽으로 */
+      let aimZ = -(.42 + power*2.9 + Math.random()*.12); /* 살살=짧게, 세게=깊게 */
+      let zTgt = Math.max(aimZ, -1.12); /* 가장자리 안전마진 */
+      if (mode === 'endless'){
+        /* 받아치기만 하면 무조건 넘어가되, 깊게 보내 속도감 유지(베이스라인 -1.37 안쪽 안전) */
+        aimX = THREE.MathUtils.clamp(aimX, -.55, .55);
+        zTgt = -(.88 + Math.random()*.28); /* -0.88~-1.16: 깊게 = 빠르게 */
+      }
       /* 네트 클리어런스 보정: 걸릴 궤적이면 T를 늘려 띄움 */
-      let Tf = Math.max(T, .42);
-      const zTgt = Math.max(aimZ, -1.12); /* 가장자리 안전마진 */
-      for (let li=0; li<4; li++){
+      let Tf = Math.max(T, mode==='endless' ? .34 : .42);
+      for (let li=0; li<6; li++){
         const vy = (TABLE.H + .021 - bp.y + .5*G*Tf*Tf)/Tf;
         const vz = (zTgt - bp.z)/Tf;
         const tn = -bp.z/vz;
@@ -1257,7 +1274,7 @@ function step(dt){
       if (heightOk && bouncedOpp && Math.abs(bp.x - prodigy.position.x) < .55) {
         lastHitter = 'cpu'; bouncedOpp = false;
         const m = speedMult();
-        const T = Math.max(.34, (.55 + Math.random()*.07)/m);
+        const T = Math.max(.18, (.55 + Math.random()*.07)/m); /* floor .18: 이게 실질 속도 상한 — 고득점까지 계속 빨라짐 */
         const spread = Math.min(1.28, .8 + (m-1)*.85);
         launch(bp.clone(), THREE.MathUtils.clamp((Math.random()-.5)*spread, -wide, wide),
           .35 + Math.random()*.85, T);
